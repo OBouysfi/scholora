@@ -1,0 +1,140 @@
+version: '3.8'
+
+volumes:
+  scholora-vendor:
+    driver: local
+  scholora-mysql-data:
+    driver: local
+  scholora-node_modules:
+    driver: local
+  scholora-postgres-data:
+    driver: local
+
+services:
+  scholora-app:
+    build:
+      context: ../scholora-backend
+      dockerfile: ../docker/php/Dockerfile
+    container_name: scholora-app
+    restart: unless-stopped
+    ports:
+      - "9100:9000"
+    env_file:
+      - ./configs/xdebug.env
+    environment:
+      - PHP_IDE_CONFIG=serverName=scholora-app
+    networks:
+      - scholora-network
+    volumes:
+      - ../scholora-backend:/var/www/html:rw
+      - scholora-vendor:/var/www/html/vendor
+    depends_on:
+      - scholora-mysql-db
+      - scholora-redis
+
+  scholora-mysql-db:
+    image: mysql:8.0
+    container_name: scholora-mysql-db
+    restart: unless-stopped
+    volumes:
+      - scholora-mysql-data:/var/lib/mysql
+      - ../scholora-backend/tests/dump:/docker-entrypoint-initdb.d/
+    ports:
+      - "3307:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: scholora_db
+      MYSQL_USER: scholora_user
+      MYSQL_PASSWORD: scholora_pass
+    networks:
+      - scholora-network
+
+  scholora-redis:
+    image: redis:alpine
+    container_name: scholora-redis
+    restart: unless-stopped
+    ports:
+      - "6380:6379"
+    networks:
+      - scholora-network
+
+  scholora-phpmyadmin:
+    image: phpmyadmin/phpmyadmin:latest
+    container_name: scholora-phpmyadmin
+    restart: unless-stopped
+    depends_on:
+      - scholora-mysql-db
+    environment:
+      - PMA_HOST=scholora-mysql-db
+      - PMA_PORT=3306
+      - MYSQL_ROOT_PASSWORD=root
+      - PMA_ARBITRARY=1
+    ports:
+      - "8081:80"
+    networks:
+      - scholora-network
+
+  scholora-react-app:
+    build:
+      context: ../scholora-frontend
+      dockerfile: ../docker/react/Dockerfile
+    container_name: scholora-react-app
+    restart: unless-stopped
+    ports:
+      - "3100:3000"
+    networks:
+      - scholora-network
+    volumes:
+      - ../scholora-frontend:/app
+      - scholora-node_modules:/app/node_modules
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+      - WATCHPACK_POLLING=true
+    depends_on:
+      - scholora-nginx
+
+  scholora-nginx:
+    image: nginx:alpine
+    container_name: scholora-nginx
+    restart: unless-stopped
+    volumes:
+      - ../scholora-backend:/var/www/html
+      - ./nginx/scholora.conf:/etc/nginx/conf.d/default.conf
+    ports:
+      - "81:80"
+    networks:
+      - scholora-network
+    depends_on:
+      - scholora-app
+
+  scholora-sonarqube:
+    image: sonarqube:community
+    container_name: scholora-sonarqube
+    restart: unless-stopped
+    ports:
+      - "9001:9000"
+    environment:
+      SONAR_JDBC_URL: jdbc:postgresql://scholora-postgres/sonar
+      SONAR_JDBC_USERNAME: sonar
+      SONAR_JDBC_PASSWORD: sonar
+    networks:
+      - scholora-network
+    depends_on:
+      - scholora-postgres
+
+  scholora-postgres:
+    image: postgres:latest
+    container_name: scholora-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: sonar
+      POSTGRES_PASSWORD: sonar
+      POSTGRES_DB: sonar
+    networks:
+      - scholora-network
+    volumes:
+      - scholora-postgres-data:/var/lib/postgresql/data
+
+networks:
+  scholora-network:
+    driver: bridge
