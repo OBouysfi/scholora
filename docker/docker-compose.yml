@@ -19,15 +19,13 @@ services:
     restart: unless-stopped
     ports:
       - "9100:9000"
-    env_file:
-      - ./configs/xdebug.env
     environment:
       - PHP_IDE_CONFIG=serverName=scholora-app
     networks:
       - scholora-network
     volumes:
       - ../scholora-backend:/var/www/html:rw
-      - scholora-vendor:/var/www/html/vendor
+      # - scholora-vendor:/var/www/html/vendor
     depends_on:
       - scholora-mysql-db
       - scholora-redis
