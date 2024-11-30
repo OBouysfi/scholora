@@ -1,1 +1,1 @@
-Scholora TEST OK
+Scholora TEST OK!

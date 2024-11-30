@@ -68,7 +68,7 @@ services:
       - MYSQL_ROOT_PASSWORD=root
       - PMA_ARBITRARY=1
     ports:
-      - "8081:80"
+      - "8002:80"
     networks:
       - scholora-network
 
